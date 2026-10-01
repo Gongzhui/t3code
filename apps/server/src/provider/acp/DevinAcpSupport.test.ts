@@ -6,6 +6,7 @@ import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 
 import {
+  applyDevinAcpModelSelection,
   buildDevinAcpSpawnInput,
   readDevinCredentialsApiKey,
   resolveDevinAcpBaseModelId,
@@ -24,6 +25,75 @@ describe("resolveDevinAcpBaseModelId", () => {
       "swe-1-7-lightning-medium",
     );
   });
+});
+
+describe("applyDevinAcpModelSelection", () => {
+  const thoughtLevelOption = {
+    id: "thought_level",
+    name: "Thinking",
+    category: "thought_level",
+    type: "select" as const,
+    currentValue: "high",
+    options: [
+      { value: "medium", name: "Medium" },
+      { value: "high", name: "High" },
+      { value: "max", name: "Max" },
+    ],
+  };
+
+  const makeRuntime = (calls: Array<readonly [string, string | boolean]>) => ({
+    setModel: (model: string) => {
+      calls.push(["model", model]);
+      return Effect.succeed({});
+    },
+    getConfigOptions: Effect.succeed([thoughtLevelOption]),
+    setConfigOption: (configId: string, value: string | boolean) => {
+      calls.push([configId, value]);
+      return Effect.succeed({});
+    },
+  });
+
+  it.effect("maps the reasoning selection onto the thought_level config option", () =>
+    Effect.gen(function* () {
+      const calls: Array<readonly [string, string | boolean]> = [];
+      yield* applyDevinAcpModelSelection({
+        runtime: makeRuntime(calls),
+        model: "swe-2-high",
+        selections: [{ id: "reasoning", value: "max" }],
+        mapError: (cause) => cause,
+      });
+      expect(calls).toEqual([
+        ["model", "swe-2-high"],
+        ["thought_level", "max"],
+      ]);
+    }),
+  );
+
+  it.effect("still applies thought_level when no model is requested", () =>
+    Effect.gen(function* () {
+      const calls: Array<readonly [string, string | boolean]> = [];
+      yield* applyDevinAcpModelSelection({
+        runtime: makeRuntime(calls),
+        model: undefined,
+        selections: [{ id: "reasoning", value: "medium" }],
+        mapError: (cause) => cause,
+      });
+      expect(calls).toEqual([["thought_level", "medium"]]);
+    }),
+  );
+
+  it.effect("skips thought_level for unknown values", () =>
+    Effect.gen(function* () {
+      const calls: Array<readonly [string, string | boolean]> = [];
+      yield* applyDevinAcpModelSelection({
+        runtime: makeRuntime(calls),
+        model: "swe-2-high",
+        selections: [{ id: "reasoning", value: "quantum" }],
+        mapError: (cause) => cause,
+      });
+      expect(calls).toEqual([["model", "swe-2-high"]]);
+    }),
+  );
 });
 
 describe("buildDevinAcpSpawnInput", () => {

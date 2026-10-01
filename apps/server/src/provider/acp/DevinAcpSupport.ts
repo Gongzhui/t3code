@@ -1,4 +1,8 @@
-import { type DevinSettings, ProviderDriverKind } from "@t3tools/contracts";
+import {
+  type DevinSettings,
+  type ProviderOptionSelection,
+  ProviderDriverKind,
+} from "@t3tools/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -9,7 +13,7 @@ import * as Scope from "effect/Scope";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import type * as EffectAcpErrors from "effect-acp/errors";
 import * as NodeOS from "node:os";
-import { normalizeModelSlug } from "@t3tools/shared/model";
+import { getProviderOptionStringSelectionValue, normalizeModelSlug } from "@t3tools/shared/model";
 
 import * as AcpSessionRuntime from "./AcpSessionRuntime.ts";
 
@@ -135,12 +139,54 @@ export function resolveDevinAcpBaseModelId(model: string | null | undefined): st
   return normalizeModelSlug(base, DEVIN_DRIVER_KIND) ?? "adaptive";
 }
 
+interface DevinAcpModelSelectionRuntime {
+  readonly getConfigOptions: AcpSessionRuntime.AcpSessionRuntime["Service"]["getConfigOptions"];
+  readonly setConfigOption: (
+    configId: string,
+    value: string | boolean,
+  ) => Effect.Effect<unknown, EffectAcpErrors.AcpError>;
+  readonly setModel: (model: string) => Effect.Effect<unknown, EffectAcpErrors.AcpError>;
+}
+
 export function applyDevinAcpModelSelection<E>(input: {
-  readonly runtime: Pick<AcpSessionRuntime.AcpSessionRuntime["Service"], "setModel">;
+  readonly runtime: DevinAcpModelSelectionRuntime;
   readonly model: string | null | undefined;
+  readonly selections?: ReadonlyArray<ProviderOptionSelection> | null | undefined;
   readonly mapError: (cause: EffectAcpErrors.AcpError) => E;
 }): Effect.Effect<void, E> {
-  return input.runtime
-    .setModel(resolveDevinAcpBaseModelId(input.model))
-    .pipe(Effect.mapError(input.mapError), Effect.asVoid);
+  return Effect.gen(function* () {
+    if (input.model !== null && input.model !== undefined) {
+      yield* input.runtime
+        .setModel(resolveDevinAcpBaseModelId(input.model))
+        .pipe(Effect.mapError(input.mapError));
+    }
+
+    const requestedThoughtLevel = getProviderOptionStringSelectionValue(
+      input.selections,
+      "reasoning",
+    )?.toLowerCase();
+    if (!requestedThoughtLevel) {
+      return;
+    }
+    const thoughtLevelOption = (yield* input.runtime.getConfigOptions).find(
+      (option) => option.category === "thought_level" && option.type === "select",
+    );
+    if (!thoughtLevelOption || thoughtLevelOption.type !== "select") {
+      return;
+    }
+    const entries = thoughtLevelOption.options.flatMap((entry) =>
+      "value" in entry ? [entry] : entry.options,
+    );
+    const match = entries.find(
+      (entry) =>
+        entry.value.trim().toLowerCase() === requestedThoughtLevel ||
+        entry.name.trim().toLowerCase() === requestedThoughtLevel,
+    );
+    if (!match) {
+      return;
+    }
+    yield* input.runtime
+      .setConfigOption(thoughtLevelOption.id, match.value)
+      .pipe(Effect.mapError(input.mapError));
+  });
 }

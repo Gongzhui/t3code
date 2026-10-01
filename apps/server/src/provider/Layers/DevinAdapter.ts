@@ -16,6 +16,7 @@ import {
   EventId,
   type ProviderApprovalDecision,
   type ProviderInteractionMode,
+  type ProviderOptionSelection,
   type ProviderRuntimeEvent,
   type ProviderSession,
   ProviderDriverKind,
@@ -341,13 +342,15 @@ export function makeDevinAdapter(devinSettings: DevinSettings, options?: DevinAd
       readonly ctx: DevinSessionContext;
       readonly interactionMode: ProviderInteractionMode | undefined;
       readonly model: string | undefined;
+      readonly selections?: ReadonlyArray<ProviderOptionSelection> | null | undefined;
       readonly threadId: ThreadId;
     }) =>
       Effect.gen(function* () {
-        if (input.model !== undefined) {
+        if (input.model !== undefined || (input.selections?.length ?? 0) > 0) {
           yield* applyDevinAcpModelSelection({
             runtime: input.ctx.acp,
             model: input.model,
+            selections: input.selections,
             mapError: (cause) =>
               mapAcpToAdapterError(PROVIDER, input.threadId, "session/set_config_option", cause),
           });
@@ -569,6 +572,7 @@ export function makeDevinAdapter(devinSettings: DevinSettings, options?: DevinAd
             ctx,
             interactionMode: undefined,
             model: devinModelSelection?.model,
+            selections: devinModelSelection?.options,
             threadId: input.threadId,
           });
 
@@ -716,6 +720,7 @@ export function makeDevinAdapter(devinSettings: DevinSettings, options?: DevinAd
             ctx,
             interactionMode: input.interactionMode,
             model: model === undefined ? undefined : resolvedModel,
+            selections: turnModelSelection?.options,
             threadId: input.threadId,
           });
           ctx.activeTurnId = turnId;

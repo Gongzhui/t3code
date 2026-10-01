@@ -22,6 +22,7 @@ import { createModelCapabilities } from "@t3tools/shared/model";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
 
 import {
+  buildSelectOptionDescriptor,
   buildServerProvider,
   isCommandMissingCause,
   parseGenericCliVersion,
@@ -173,6 +174,46 @@ function devinModelsFromSettings(
 }
 
 /**
+ * Devin exposes a session-level `thought_level` select (e.g. medium/high/max)
+ * alongside the model picker. Surface it as a per-model `reasoning` option so
+ * the composer renders the same effort dropdown other providers use.
+ */
+export function buildDevinModelCapabilities(
+  configOptions: ReadonlyArray<EffectAcpSchema.SessionConfigOption> | null | undefined,
+): ModelCapabilities {
+  const thoughtLevelOption = configOptions?.find(
+    (option) => option.category === "thought_level" && option.type === "select",
+  );
+  if (!thoughtLevelOption || thoughtLevelOption.type !== "select") {
+    return EMPTY_CAPABILITIES;
+  }
+  const options = thoughtLevelOption.options.flatMap((entry) =>
+    "value" in entry ? [entry] : entry.options,
+  );
+  return createModelCapabilities({
+    optionDescriptors: [
+      buildSelectOptionDescriptor({
+        id: "reasoning",
+        label: thoughtLevelOption.name?.trim() || "Thinking",
+        options: options.flatMap((entry) => {
+          const value = entry.value.trim();
+          if (!value) {
+            return [];
+          }
+          return [
+            {
+              value,
+              label: entry.name.trim() || value,
+              ...(value === thoughtLevelOption.currentValue ? { isDefault: true } : {}),
+            },
+          ];
+        }),
+      }),
+    ],
+  });
+}
+
+/**
  * Models advertised by the session's `model` config option. Devin does not
  * expose a catalog in `initialize`, so the list only appears after
  * `session/new`.
@@ -187,6 +228,7 @@ export function buildDevinModelsFromConfigOptions(
     return [];
   }
   const currentValue = modelOption.currentValue?.trim();
+  const capabilities = buildDevinModelCapabilities(configOptions);
   const seen = new Set<string>();
   // ACP select options can be flat entries or `{ group, options }` sections.
   const entries = modelOption.options.flatMap((entry) =>
@@ -204,7 +246,7 @@ export function buildDevinModelsFromConfigOptions(
         name: entry.name.trim() || slug,
         isCustom: false,
         ...(slug === currentValue ? { isDefault: true } : {}),
-        capabilities: EMPTY_CAPABILITIES,
+        capabilities,
       },
     ];
   });

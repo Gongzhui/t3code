@@ -70,6 +70,40 @@ describe("buildDevinModelsFromConfigOptions", () => {
     ).toEqual([]);
   });
 
+  it("surfaces the session thought_level option as a reasoning descriptor", () => {
+    const models = buildDevinModelsFromConfigOptions([
+      modelOption,
+      {
+        id: "thought_level",
+        name: "Thinking",
+        category: "thought_level",
+        type: "select" as const,
+        currentValue: "high",
+        options: [
+          { value: "medium", name: "Medium" },
+          { value: "high", name: "High" },
+          { value: "max", name: "Max" },
+        ],
+      },
+    ]);
+    const reasoning = models
+      .find((model) => model.slug === "swe-2-high")
+      ?.capabilities?.optionDescriptors?.find((descriptor) => descriptor.id === "reasoning");
+    expect(reasoning?.type).toBe("select");
+    expect(reasoning?.label).toBe("Thinking");
+    if (reasoning?.type === "select") {
+      expect(reasoning.options.map((option) => option.id)).toEqual(["medium", "high", "max"]);
+      expect(reasoning.currentValue).toBe("high");
+    }
+  });
+
+  it("leaves capabilities empty without a thought_level option", () => {
+    const models = buildDevinModelsFromConfigOptions([modelOption]);
+    expect(
+      models.find((model) => model.slug === "swe-2-high")?.capabilities?.optionDescriptors,
+    ).toEqual([]);
+  });
+
   it("marks the session's current value as the default", () => {
     const flat = buildDevinModelsFromConfigOptions([
       {
