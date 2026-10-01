@@ -280,6 +280,21 @@ export const GrokIcon: Icon = ({ className, ...props }) => (
   </svg>
 );
 
+export const DevinIcon: Icon = ({ className, ...props }) => (
+  <svg
+    {...props}
+    viewBox="0 0 24 24"
+    fill="none"
+    className={cn("fill-[#0F0F0F] dark:fill-[#F5F5F5]", className)}
+  >
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M4 3.5h8.5a8.5 8.5 0 0 1 0 17H4v-17Zm4 4v9h4.5a4.5 4.5 0 0 0 0-9H8Z"
+    />
+  </svg>
+);
+
 export const TraeIcon: Icon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="currentColor">
     {/* Back rectangle: left strip + bottom strip drawn separately — empty bottom-left corner is the gap between them */}

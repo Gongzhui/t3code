@@ -96,6 +96,8 @@ export interface AcpSessionRuntimeOptions {
     readonly version: string;
   };
   readonly authMethodId: string;
+  /** Extra `_meta` fields merged into the `authenticate` request (e.g. an API key). */
+  readonly authMeta?: Record<string, unknown>;
   readonly mcpServers?: ReadonlyArray<EffectAcpSchema.McpServer>;
   /** Extra workspace roots the agent may read and write besides `cwd`. */
   readonly additionalDirectories?: ReadonlyArray<string>;
@@ -745,6 +747,7 @@ export const make = (
 
       const authenticatePayload = {
         methodId: options.authMethodId,
+        ...(options.authMeta ? { _meta: options.authMeta } : {}),
       } satisfies EffectAcpSchema.AuthenticateRequest;
 
       yield* runLoggedRequest(

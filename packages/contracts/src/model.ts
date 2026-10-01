@@ -148,6 +148,7 @@ const CLAUDE_DRIVER_KIND = ProviderDriverKind.make("claudeAgent");
 const CURSOR_DRIVER_KIND = ProviderDriverKind.make("cursor");
 const GROK_DRIVER_KIND = ProviderDriverKind.make("grok");
 const OPENCODE_DRIVER_KIND = ProviderDriverKind.make("opencode");
+const DEVIN_DRIVER_KIND = ProviderDriverKind.make("devin");
 
 export const DEFAULT_MODEL = "gpt-6-astra";
 
@@ -174,6 +175,9 @@ export const DEFAULT_MODEL_BY_PROVIDER: Partial<Record<ProviderDriverKind, strin
   [GROK_DRIVER_KIND]: "grok-build",
   [OPENCODE_DRIVER_KIND]: "openai/gpt-5",
   [ProviderDriverKind.make("antigravity")]: ANTIGRAVITY_DEFAULT_MODEL,
+  // Devin advertises `adaptive` as its routing option; it follows the
+  // account's recommended model (SWE-2 family) instead of pinning a slug.
+  [DEVIN_DRIVER_KIND]: "adaptive",
 };
 
 /** Per-provider text generation model defaults. */
@@ -222,4 +226,5 @@ export const PROVIDER_DISPLAY_NAMES: Partial<Record<ProviderDriverKind, string>>
   [CURSOR_DRIVER_KIND]: "Cursor",
   [GROK_DRIVER_KIND]: "Grok",
   [OPENCODE_DRIVER_KIND]: "OpenCode",
+  [DEVIN_DRIVER_KIND]: "Devin",
 };

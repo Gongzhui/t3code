@@ -889,6 +889,51 @@ export const OpenCodeSettings = makeProviderSettingsSchema(
 );
 export type OpenCodeSettings = typeof OpenCodeSettings.Type;
 
+export const DevinSettings = makeProviderSettingsSchema(
+  {
+    // Off by default (like Cursor and Grok): the binding is not yet stable
+    // enough to probe on every install. Users opt in from Settings.
+    enabled: Schema.Boolean.pipe(
+      Schema.withDecodingDefault(Effect.succeed(false)),
+      Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
+    ),
+    binaryPath: makeBinaryPathSetting("devin").pipe(
+      Schema.annotateKey({
+        title: "Binary path",
+        description: "Path to the Devin CLI binary.",
+        providerSettingsForm: { placeholder: "devin", clearWhenEmpty: "omit" },
+      }),
+    ),
+    /**
+     * Optional Cognition API key used for ACP `authenticate` (`_meta.api_key`).
+     * When empty, the adapter falls back to the key in the Devin CLI's own
+     * credentials file, then to the interactive `devin-browser` PKCE flow,
+     * which opens a browser tab for every new session.
+     */
+    apiKey: TrimmedString.pipe(
+      Schema.withDecodingDefault(Effect.succeed("")),
+      Schema.annotateKey({
+        title: "API key",
+        description:
+          "Devin API key for non-interactive ACP sign-in. Stored in plain text. Leave empty to use the Devin CLI's saved credential or browser sign-in.",
+        providerSettingsForm: {
+          control: "password",
+          placeholder: "Optional",
+          clearWhenEmpty: "omit",
+        },
+      }),
+    ),
+    customModels: Schema.Array(CustomModelSetting).pipe(
+      Schema.withDecodingDefault(Effect.succeed([])),
+      Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
+    ),
+  },
+  {
+    order: ["binaryPath", "apiKey"],
+  },
+);
+export type DevinSettings = typeof DevinSettings.Type;
+
 /**
  * A read-only quota source outside this environment's provider CLIs. The
  * only kind today is a CLIProxyAPI hub, whose management API reports the
@@ -1283,6 +1328,7 @@ export const ServerSettings = Schema.Struct({
     grok: GrokSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
     opencode: OpenCodeSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
     antigravity: AntigravitySettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
+    devin: DevinSettings.pipe(Schema.withDecodingDefault(Effect.succeed({}))),
   }).pipe(Schema.withDecodingDefault(Effect.succeed({}))),
   // New driver-agnostic instance map. Keyed by `ProviderInstanceId`; values
   // are `ProviderInstanceConfig` envelopes. The driver-specific config blob
@@ -1461,6 +1507,13 @@ const OpenCodeSettingsPatch = Schema.Struct({
   customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
 });
 
+const DevinSettingsPatch = Schema.Struct({
+  enabled: Schema.optionalKey(Schema.Boolean),
+  binaryPath: Schema.optionalKey(TrimmedString),
+  apiKey: Schema.optionalKey(TrimmedString),
+  customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
+});
+
 export const ServerSettingsPatch = Schema.Struct({
   worktreeCleanup: Schema.optionalKey(
     Schema.NullOr(
@@ -1571,6 +1624,7 @@ export const ServerSettingsPatch = Schema.Struct({
       grok: Schema.optionalKey(GrokSettingsPatch),
       opencode: Schema.optionalKey(OpenCodeSettingsPatch),
       antigravity: Schema.optionalKey(AntigravitySettingsPatch),
+      devin: Schema.optionalKey(DevinSettingsPatch),
     }),
   ),
   // Whole-map replacement for the new instance config. Patching individual
